@@ -1,0 +1,1832 @@
+================================================================================
+  ENTERPRISE SPRING BOOT BACKEND - COMPLETE ARCHITECTURE ANALYSIS & NOTES
+  Project: ess-odadmin-service (Nationwide Enterprise OD Admin Service)
+  Spring Boot 3.5.13 | Java 21 | Oracle DB | Spring Security | JPA/Hibernate
+  Prepared for: Senior Java Spring Boot Developer Interview Preparation
+================================================================================
+
+================================================================================
+PART 1: SPRING BOOT BACKEND ARCHITECTURE OVERVIEW
+================================================================================
+
+1.1 WHAT IS SPRING FRAMEWORK
+─────────────────────────────────────────────────────────────────────────────────
+Definition:
+  Spring Framework is an open-source, lightweight, enterprise-grade Java
+  application framework that provides comprehensive infrastructure support
+  for developing Java applications.
+
+Core Principles:
+  • Inversion of Control (IoC) - Framework controls object creation
+  • Dependency Injection (DI) - Objects receive dependencies from outside
+  • Aspect-Oriented Programming (AOP) - Cross-cutting concerns separated
+  • Convention over Configuration
+
+Internal Working:
+  Spring creates an IoC container (ApplicationContext) that manages the
+  lifecycle of all Java objects (called "Beans"). Instead of you creating
+  objects with "new", Spring creates them, wires them together, and manages
+  their lifecycle.
+
+Interview Answer:
+  "Spring Framework is a comprehensive programming and configuration model
+  for modern Java-based enterprise applications. It uses IoC and DI to
+  reduce coupling between components, making applications testable,
+  maintainable, and scalable."
+
+1.2 WHAT IS SPRING BOOT
+─────────────────────────────────────────────────────────────────────────────────
+Definition:
+  Spring Boot is an opinionated framework built on top of Spring Framework
+  that simplifies the bootstrapping and development of Spring applications
+  by providing auto-configuration, embedded servers, and production-ready
+  features.
+
+Why Spring Boot over Spring:
+  • No XML configuration needed
+  • Embedded Tomcat/Jetty server
+  • Auto-configuration (intelligent defaults)
+  • Starter dependencies (curated dependency sets)
+  • Production-ready features (health checks, metrics)
+  • Rapid development with minimal boilerplate
+
+YOUR PROJECT USES: Spring Boot 3.5.13 with Java 21
+  - spring-boot-starter-web (REST APIs)
+  - spring-boot-starter-data-jpa (Database)
+  - spring-boot-starter-security (Authentication)
+  - spring-boot-starter-actuator (Monitoring)
+
+Interview Answer:
+  "Spring Boot is an opinionated, convention-over-configuration framework
+  that eliminates boilerplate setup. It provides auto-configuration,
+  embedded servers, and starter dependencies to rapidly build
+  production-grade microservices."
+
+1.3 WHY SPRING BOOT IN ENTERPRISE APPLICATIONS
+─────────────────────────────────────────────────────────────────────────────────
+  • Rapid Development - Starters and auto-config reduce setup time
+  • Microservices Ready - Lightweight, independently deployable
+  • Cloud Native - Works with Kubernetes, Docker, PCF
+  • Enterprise Security - Spring Security integration
+  • Database Support - JPA/Hibernate, multiple DB support (Oracle, PostgreSQL)
+  • Monitoring - Actuator for health checks, metrics
+  • Testing - Built-in test support (JUnit, Mockito)
+  • Community - Massive ecosystem and support
+
+YOUR PROJECT: Enterprise insurance admin service managing agency routing,
+premium auditing, and contract agents with Oracle database backend.
+
+1.4 SPRING BOOT ARCHITECTURE OVERVIEW
+─────────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────────┐
+  │                    CLIENT (Browser/UI)                    │
+  └──────────────────────────┬──────────────────────────────┘
+                             │ HTTP Request
+                             ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │              SPRING SECURITY FILTER CHAIN                 │
+  │  CorsFilter → UserFilter → SecurityFilterChain           │
+  └──────────────────────────┬──────────────────────────────┘
+                             │ Authenticated Request
+                             ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │               CONTROLLER LAYER (@RestController)         │
+  │  AgencyAcctRoutingController                             │
+  │  PremiumAuditRoutingController                           │
+  │  R2BContractAgentController                              │
+  └──────────────────────────┬──────────────────────────────┘
+                             │ Calls Service
+                             ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │               SERVICE LAYER (@Service)                   │
+  │  AgencyAcctRoutingServiceImpl                            │
+  │  PremiumAuditRoutingServiceImpl                          │
+  │  R2BContractAgentServiceImpl                             │
+  └──────────────────────────┬──────────────────────────────┘
+                             │ Calls Repository
+                             ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │             REPOSITORY LAYER (JpaRepository)             │
+  │  AgencyAcctRoutingRepo                                   │
+  │  ApplicationUsersRepo                                    │
+  │  PremiumAuditRoutingRepo                                 │
+  └──────────────────────────┬──────────────────────────────┘
+                             │ JPA/Hibernate SQL
+                             ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │               DATABASE (Oracle 19c)                      │
+  │  AGENCY_ACCT_ROUTING, OV_APPLICATION_USERS, etc.         │
+  └─────────────────────────────────────────────────────────┘
+
+1.5 COMPLETE RUNTIME FLOW (Your Project)
+─────────────────────────────────────────────────────────────────────────────────
+
+Step 1: Client sends HTTP GET /agency-acct-routings/search?agntNbr=123
+Step 2: Request hits embedded Tomcat on port 8080
+Step 3: CorsFilter executes (HIGHEST_PRECEDENCE) - sets CORS headers
+Step 4: UserFilter executes:
+        - Extracts "X-User-Id" header
+        - Calls UserService.getUserById(userId)
+        - Validates user exists in OV_APPLICATION_USERS table
+        - Creates UsernamePasswordAuthenticationToken
+        - Sets SecurityContext
+Step 5: Spring Security authorizes the request
+Step 6: DispatcherServlet routes to AgencyAcctRoutingController.retrieveAgencyAcctRouting()
+Step 7: Controller calls AgencyAcctRoutingService.retrieveAgencyAcctRouting()
+Step 8: Service calls AgencyAcctRoutingRepo.findByAgntNbr("123")
+Step 9: Spring Data JPA generates SQL: SELECT * FROM AGENCY_ACCT_ROUTING WHERE AGNT_NBR='123'
+Step 10: Hibernate executes query against Oracle DB
+Step 11: ResultSet mapped to List<AgencyAcctRouting> entities
+Step 12: ModelMapper converts entities to List<AgencyAcctRoutingDTO>
+Step 13: Service returns DTOs to Controller
+Step 14: Controller wraps in ResponseEntity with HttpStatus.OK
+Step 15: Spring serializes to JSON via Jackson
+Step 16: Response sent back to client
+
+
+================================================================================
+PART 2: ENTERPRISE SPRING BOOT PROJECT STRUCTURE
+================================================================================
+
+YOUR PROJECT STRUCTURE:
+─────────────────────────────────────────────────────────────────────────────────
+
+src/main/java/com/nw/odAdmin_service/
+├── EssOdadminServiceApplication.java    ← Application entry point
+├── Configuration/                        ← Security & App Configuration
+│   ├── CorsFilter.java                  ← CORS handling
+│   ├── ModelMapperConfig.java           ← Bean configuration
+│   └── SecurityConfig.java             ← Spring Security setup
+├── constants/                           ← Application constants
+│   └── ExceptionConstants.java          ← Error message constants
+├── Controller/                          ← REST API endpoints
+│   ├── AgencyAcctRoutingController.java
+│   ├── PremiumAuditRoutingController.java
+│   ├── R2BContractAgentController.java
+│   ├── WinsValidationController.java
+│   └── GlobalExceptionHandler.java      ← Global error handling
+├── Entities/                            ← JPA Entity classes (DB mapping)
+│   ├── AgencyAcctRouting.java
+│   ├── ApplicationUsers.java
+│   ├── PremiumAuditRouting.java
+│   ├── R2BContractAgent.java
+│   └── ... (more entities)
+├── exception/                           ← Custom exception classes
+│   ├── AgencyAcctRoutingException.java
+│   ├── AlreadyExistException.java
+│   ├── NotFoundException.java
+│   ├── UnauthorizedException.java
+│   └── ... (more exceptions)
+├── filter/                              ← Security filters
+│   └── UserFilter.java                  ← Authentication filter
+├── model/                               ← DTOs (Data Transfer Objects)
+│   ├── AgencyAcctRoutingDTO.java
+│   ├── PremiumAuditRoutingDTO.java
+│   ├── ErrorResponseDTO.java
+│   └── ... (more DTOs)
+├── Repositories/                        ← Data Access Layer
+│   ├── AgencyAcctRoutingRepo.java
+│   ├── ApplicationUsersRepo.java
+│   └── ... (more repos)
+├── service/                             ← Service interfaces
+│   ├── AgencyAcctRoutingService.java
+│   ├── UserService.java
+│   └── ... (more interfaces)
+└── ServiceImpl/                         ← Service implementations
+    ├── AgencyAcctRoutingServiceImpl.java
+    └── ... (more implementations)
+
+src/main/resources/
+├── application.properties               ← Common config
+├── application-dev.properties           ← Development profile
+├── application-prod.properties          ← Production profile
+├── application-pt.properties            ← Performance test profile
+└── OAS-Ess-Odadmin-service.yml          ← OpenAPI specification
+
+PURPOSE OF EACH LAYER:
+─────────────────────────────────────────────────────────────────────────────────
+
+Controller Layer:
+  - Receives HTTP requests
+  - Input validation
+  - Delegates to service layer
+  - Returns HTTP responses with status codes
+  - NO business logic here
+
+Service Layer (Interface + Impl):
+  - Contains ALL business logic
+  - Transaction management
+  - Data transformation (Entity ↔ DTO)
+  - Orchestrates multiple repository calls
+  - Interface-based for loose coupling
+
+Repository Layer:
+  - Database access abstraction
+  - CRUD operations
+  - Custom queries (JPQL, native)
+  - Spring Data JPA auto-implementation
+
+Entity Layer:
+  - Database table mapping (ORM)
+  - JPA annotations define schema
+  - Hibernate manages persistence
+
+DTO Layer (model/):
+  - Data transfer between layers
+  - Decouples internal entity from API response
+  - Contains only necessary fields for client
+
+Configuration Layer:
+  - Bean definitions
+  - Security setup
+  - Third-party library config
+
+Filter Layer:
+  - Request interception
+  - Authentication/Authorization
+  - Executes before controllers
+
+Exception Layer:
+  - Custom business exceptions
+  - Global exception handling
+  - Consistent error responses
+
+Constants Layer:
+  - Application-wide constants
+  - Error messages
+  - Eliminates magic strings
+
+
+================================================================================
+PART 3: SPRING BOOT APPLICATION STARTUP INTERNAL WORKING
+================================================================================
+
+3.1 main() METHOD
+─────────────────────────────────────────────────────────────────────────────────
+
+YOUR CODE:
+  @SpringBootApplication
+  public class EssOdadminServiceApplication {
+      public static void main(String[] args) {
+          SpringApplication.run(EssOdadminServiceApplication.class, args);
+      }
+  }
+
+INTERNAL EXECUTION FLOW:
+
+  Step 1: JVM calls main() method
+  Step 2: SpringApplication.run() creates SpringApplication instance
+  Step 3: Determines application type (SERVLET for web apps)
+  Step 4: Loads ApplicationContextInitializers
+  Step 5: Loads ApplicationListeners
+  Step 6: Determines main application class
+
+  Step 7: RUNS the application:
+    a) Creates appropriate ApplicationContext (AnnotationConfigServletWebServerApplicationContext)
+    b) Prepares Environment (reads application.properties, profiles)
+    c) Prints Banner (Spring logo)
+    d) Creates and refreshes ApplicationContext
+    e) Performs component scanning (base package: com.nw.odAdmin_service)
+    f) Triggers auto-configuration
+    g) Creates all beans (controllers, services, repos, filters)
+    h) Starts embedded Tomcat server on port 8080
+    i) Publishes ApplicationReadyEvent
+
+3.2 @SpringBootApplication INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+@SpringBootApplication is a meta-annotation combining THREE annotations:
+
+  @SpringBootConfiguration (same as @Configuration)
+    → Marks class as source of bean definitions
+    → Allows defining @Bean methods
+
+  @EnableAutoConfiguration
+    → Triggers Spring Boot's auto-configuration mechanism
+    → Reads META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+    → Conditionally creates beans based on classpath
+    → Example: DataSourceAutoConfiguration creates DataSource because
+      spring-boot-starter-data-jpa is on classpath
+
+  @ComponentScan
+    → Scans base package (com.nw.odAdmin_service) and sub-packages
+    → Finds classes annotated with @Component, @Service, @Repository,
+      @Controller, @RestController, @Configuration
+    → Registers them as beans in ApplicationContext
+
+3.3 AUTO-CONFIGURATION IN YOUR PROJECT
+─────────────────────────────────────────────────────────────────────────────────
+
+Because of your pom.xml dependencies, these are AUTO-CONFIGURED:
+  • spring-boot-starter-web → DispatcherServlet, Tomcat, Jackson
+  • spring-boot-starter-data-jpa → DataSource, EntityManagerFactory, TransactionManager
+  • spring-boot-starter-security → SecurityFilterChain, AuthenticationManager
+  • spring-boot-starter-actuator → Health endpoint, Metrics
+
+3.4 BEAN CREATION LIFECYCLE
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. Bean Definition Loading (reads annotations/config)
+  2. Bean Instantiation (creates object)
+  3. Dependency Injection (injects @Autowired fields)
+  4. BeanNameAware, BeanFactoryAware callbacks
+  5. BeanPostProcessor.postProcessBeforeInitialization()
+  6. @PostConstruct method execution
+  7. InitializingBean.afterPropertiesSet()
+  8. BeanPostProcessor.postProcessAfterInitialization()
+  9. Bean is READY for use
+  10. @PreDestroy on shutdown
+  11. DisposableBean.destroy()
+
+Interview Question: "What is the order of bean lifecycle callbacks?"
+Answer: Constructor → @Autowired → @PostConstruct → afterPropertiesSet() → @PreDestroy → destroy()
+
+
+================================================================================
+PART 4: CONTROLLER LAYER DEEP EXPLANATION
+================================================================================
+
+4.1 @RestController vs @Controller
+─────────────────────────────────────────────────────────────────────────────────
+
+@RestController = @Controller + @ResponseBody
+  • @Controller: Marks class as Spring MVC controller, returns view names
+  • @RestController: Returns data directly (JSON/XML), not views
+  • @ResponseBody: Tells Spring to serialize return value to response body
+
+YOUR PROJECT USES @RestController because it's a REST API backend.
+
+4.2 REQUEST MAPPING ANNOTATIONS
+─────────────────────────────────────────────────────────────────────────────────
+
+@RequestMapping("/agency-acct-routings")  → Base URL for all endpoints in class
+@GetMapping                                → HTTP GET (retrieve data)
+@PostMapping                               → HTTP POST (create data)
+@PutMapping                                → HTTP PUT (update data)
+@DeleteMapping("/{id}")                    → HTTP DELETE (delete data)
+
+YOUR PROJECT ENDPOINTS:
+  POST   /agency-acct-routings          → Create routing
+  PUT    /agency-acct-routings          → Update routing
+  GET    /agency-acct-routings/search   → Search with filters
+  GET    /agency-acct-routings          → Get all
+  DELETE /agency-acct-routings/{id}     → Delete by ID(s)
+
+  POST   /premium-audit-routings        → Create audit routing
+  PUT    /premium-audit-routings        → Update audit routing
+  GET    /premium-audit-routings/search → Search
+  GET    /premium-audit-routings        → Get all
+  DELETE /premium-audit-routings/{id}   → Delete
+
+  POST   /r2b-contract-agents          → Create contract agent
+  GET    /r2b-contract-agents/search   → Search
+  GET    /r2b-contract-agents          → Get all
+  DELETE /r2b-contract-agents/{id}     → Delete
+
+4.3 YOUR CONTROLLER EXAMPLE ANALYSIS
+─────────────────────────────────────────────────────────────────────────────────
+
+@RestController
+@RequestMapping("/agency-acct-routings")
+public class AgencyAcctRoutingController {
+
+    @Autowired
+    private AgencyAcctRoutingService agencyAcctRoutingService;
+
+    @PostMapping
+    public ResponseEntity<AgencyAcctRoutingDTO> saveAgencyAcctRouting(
+            @RequestBody AgencyAcctRoutingDTO agencyAcctRoutingDTO)
+            throws AgencyAcctRoutingException {
+        ...
+    }
+}
+
+ANNOTATION BREAKDOWN:
+  @RestController → Registers as controller bean, returns JSON
+  @RequestMapping → Maps all endpoints under /agency-acct-routings
+  @Autowired → Injects AgencyAcctRoutingService bean
+  @PostMapping → Maps to HTTP POST
+  @RequestBody → Deserializes JSON request body to DTO object
+  ResponseEntity<T> → Allows setting HTTP status code + body
+  @RequestParam → Extracts query parameters (?agntNbr=xxx)
+  @PathVariable → Extracts URL path variable (/{id})
+
+4.4 INTERNAL REQUEST LIFECYCLE
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. HTTP Request arrives at Tomcat
+  2. DispatcherServlet receives request
+  3. HandlerMapping finds matching controller method
+  4. HandlerAdapter invokes the method
+  5. @RequestBody → HttpMessageConverter deserializes JSON to Java object
+  6. Method executes (calls service)
+  7. Return value serialized to JSON via Jackson
+  8. ResponseEntity sets HTTP status
+  9. Response sent to client
+
+Interview Answer:
+  "The DispatcherServlet is the front controller. It uses HandlerMapping to
+  find the right controller method, HandlerAdapter to invoke it, and
+  HttpMessageConverters to handle serialization/deserialization."
+
+
+================================================================================
+PART 5: SERVICE LAYER DEEP EXPLANATION
+================================================================================
+
+5.1 SERVICE LAYER ROLE
+─────────────────────────────────────────────────────────────────────────────────
+
+The Service Layer is the BRAIN of your application:
+  • Contains ALL business logic
+  • Orchestrates data flow
+  • Manages transactions
+  • Performs data validation
+  • Handles entity ↔ DTO conversion
+  • Coordinates multiple repository calls
+
+YOUR PROJECT SERVICE PATTERN:
+  Interface (service/) + Implementation (ServiceImpl/)
+
+  AgencyAcctRoutingService (interface) → AgencyAcctRoutingServiceImpl (implementation)
+
+  WHY Interface + Implementation?
+  • Loose coupling (program to interface)
+  • Easy testing (mock the interface)
+  • Multiple implementations possible
+  • Spring proxy works better with interfaces
+
+5.2 @Service ANNOTATION INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+@Service is a specialization of @Component:
+  1. Component scanning finds @Service classes
+  2. Spring creates a singleton bean instance
+  3. Wraps with AOP proxy (for @Transactional)
+  4. Injects all @Autowired dependencies
+  5. Registers in ApplicationContext
+
+5.3 YOUR SERVICE EXAMPLE ANALYSIS
+─────────────────────────────────────────────────────────────────────────────────
+
+@Service
+public class AgencyAcctRoutingServiceImpl implements AgencyAcctRoutingService {
+
+    @Autowired
+    private AgencyAcctRoutingRepo agencyAcctRoutingRepo;
+    @Autowired
+    private ApplicationUsersRepo applicationUsersRepo;
+    @Autowired
+    private UsersRepo usersRepo;
+    @Autowired
+    private ModelMapper mapper;
+
+    @Override
+    public AgencyAcctRoutingDTO saveAgentAcctRouting(AgencyAcctRoutingDTO dto) {
+        // 1. Validate user exists
+        boolean existsUserId = usersRepo.existsByUserId(dto.getUserId());
+        if (!existsUserId) {
+            dto.setStatus("NOT_FOUND");
+            dto.setMessage("User Id is not in the OmniView Users Table.");
+            return dto;
+        }
+
+        // 2. Check if record already exists
+        Optional<AgencyAcctRouting> existing = Optional.ofNullable(
+            agencyAcctRoutingRepo.findFirstByAgntNbrAndEntpsId(
+                dto.getAgntNbr(), dto.getEntpsId()));
+
+        if (existing.isPresent()) {
+            dto.setStatus("EXISTS");
+            return dto;
+        }
+
+        // 3. Map DTO to Entity and save
+        AgencyAcctRouting entity = mapper.map(dto, AgencyAcctRouting.class);
+        AgencyAcctRouting saved = agencyAcctRoutingRepo.save(entity);
+
+        // 4. Map Entity back to DTO and return
+        AgencyAcctRoutingDTO response = mapper.map(saved, AgencyAcctRoutingDTO.class);
+        response.setStatus("CREATED");
+        return response;
+    }
+}
+
+BUSINESS LOGIC FLOW:
+  Validate → Check Existence → Transform → Persist → Return Result
+
+5.4 TRANSACTION MANAGEMENT
+─────────────────────────────────────────────────────────────────────────────────
+
+@Transactional annotation:
+  • Wraps method in database transaction
+  • Auto-commits on success
+  • Auto-rollbacks on RuntimeException
+  • Uses Spring's PlatformTransactionManager
+
+Your project uses @Transactional on repository update methods:
+  @Modifying
+  @Transactional
+  @Query("UPDATE AgencyAcctRouting a SET ... WHERE a.id = :id")
+  int updateAgencyAcctRoutingById(...)
+
+Interview Answer:
+  "@Transactional creates a proxy around the bean. When a method is called,
+  the proxy begins a transaction, executes the method, and commits.
+  If a RuntimeException occurs, it rolls back automatically."
+
+
+================================================================================
+PART 6: REPOSITORY LAYER DEEP EXPLANATION
+================================================================================
+
+6.1 REPOSITORY LAYER ROLE
+─────────────────────────────────────────────────────────────────────────────────
+
+The Repository Layer abstracts ALL database access:
+  • Provides CRUD operations
+  • Executes custom queries
+  • Returns entity objects
+  • Spring Data JPA auto-implements interfaces
+
+6.2 SPRING DATA JPA INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+MAGIC: You write an INTERFACE, Spring creates the IMPLEMENTATION at runtime!
+
+public interface AgencyAcctRoutingRepo extends JpaRepository<AgencyAcctRouting, Long> {
+    List<AgencyAcctRouting> findByAgntNbr(String agntNbr);
+}
+
+HOW IT WORKS INTERNALLY:
+  1. Spring scans for interfaces extending JpaRepository
+  2. Creates a JDK dynamic proxy at runtime
+  3. Proxy implements ALL methods:
+     - Inherited: save(), findAll(), deleteById(), count(), etc.
+     - Derived queries: parses method name → generates JPQL
+     - @Query methods: uses provided JPQL/native SQL
+
+  findByAgntNbr(String agntNbr) is parsed as:
+  → SELECT a FROM AgencyAcctRouting a WHERE a.agntNbr = :agntNbr
+
+  findByAgntNbrAndEntpsId(String agntNbr, String entpsId) is parsed as:
+  → SELECT a FROM AgencyAcctRouting a WHERE a.agntNbr = :agntNbr AND a.entpsId = :entpsId
+
+6.3 YOUR REPOSITORY METHODS
+─────────────────────────────────────────────────────────────────────────────────
+
+DERIVED QUERY METHODS (auto-generated SQL):
+  findByAgntNbrAndEntpsIdAndUserId(...)   → WHERE agntNbr=? AND entpsId=? AND userId=?
+  findByAgntNbrAndEntpsId(...)            → WHERE agntNbr=? AND entpsId=?
+  findByAgntNbr(...)                      → WHERE agntNbr=?
+  findByEntpsId(...)                      → WHERE entpsId=?
+  findByUserId(...)                       → WHERE userId=?
+  existsByUserId(...)                     → SELECT CASE WHEN COUNT(*)>0 THEN true
+  findFirstByAgntNbrAndEntpsId(...)       → WHERE ... FETCH FIRST 1 ROW
+
+CUSTOM @Query METHODS:
+  @Modifying @Transactional
+  @Query("UPDATE AgencyAcctRouting a SET a.agntNbr = :newAgntNbr, ...")
+  int updateAgencyAcctRoutingById(@Param("id") Long id, ...)
+
+  @Query("SELECT a FROM AgencyAcctRouting a WHERE a.agntNbr LIKE :agntNbr")
+  List<AgencyAcctRouting> findByAgntNbrLike(@Param("agntNbr") String agntNbr)
+
+6.4 JpaRepository HIERARCHY
+─────────────────────────────────────────────────────────────────────────────────
+
+  Repository (marker interface)
+    └── CrudRepository (basic CRUD: save, findById, delete, count)
+        └── ListCrudRepository (returns List instead of Iterable)
+            └── PagingAndSortingRepository (pagination + sorting)
+                └── JpaRepository (flush, batch operations, JPQL)
+
+6.5 DATABASE INTERACTION FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+  agencyAcctRoutingRepo.save(entity)
+    ↓
+  SimpleJpaRepository.save() (Spring's default implementation)
+    ↓
+  EntityManager.persist(entity) [if new] or EntityManager.merge(entity) [if exists]
+    ↓
+  Hibernate Session
+    ↓
+  JDBC PreparedStatement
+    ↓
+  Oracle JDBC Driver (ojdbc8)
+    ↓
+  Oracle Database 19c
+
+
+================================================================================
+PART 7: ENTITY LAYER DEEP EXPLANATION
+================================================================================
+
+7.1 @Entity AND ORM MAPPING
+─────────────────────────────────────────────────────────────────────────────────
+
+ORM (Object-Relational Mapping):
+  Maps Java objects to database tables. Each entity class = one table.
+  Each field = one column. Each instance = one row.
+
+YOUR ENTITY EXAMPLE:
+
+@Entity                                    ← Marks as JPA entity (DB table)
+@Table(name = "AGENCY_ACCT_ROUTING")      ← Maps to specific table name
+public class AgencyAcctRouting implements Serializable {
+
+    @Id                                    ← Primary key
+    @GeneratedValue(strategy = GenerationType.SEQUENCE,
+                    generator = "agency_acct_routing_seq")  ← Auto-generate ID
+    @SequenceGenerator(
+        name = "agency_acct_routing_seq",
+        sequenceName = "SEQ_AGENCY_ACCT_ROUTING",
+        allocationSize = 1)               ← Oracle sequence for ID generation
+    private Long id;
+
+    private String agntNbr;               ← Maps to AGNT_NBR column
+    private String entpsId;               ← Maps to ENTPS_ID column
+    private String userId;                ← Maps to USER_ID column
+}
+
+7.2 ANNOTATION BREAKDOWN
+─────────────────────────────────────────────────────────────────────────────────
+
+@Entity     → Tells JPA this class maps to a database table
+@Table      → Specifies exact table name (if different from class name)
+@Id         → Marks the primary key field
+@GeneratedValue → Defines ID generation strategy
+@SequenceGenerator → Uses Oracle DB sequence for unique IDs
+@Column     → Specifies column name/properties (used in ApplicationUsers)
+Serializable → Required for caching and distributed systems
+
+7.3 HIBERNATE ORM MAPPING FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+  Java Object (AgencyAcctRouting)
+    ↓ Hibernate maps fields to columns
+  SQL Statement: INSERT INTO AGENCY_ACCT_ROUTING (ID, AGNT_NBR, ENTPS_ID, USER_ID) VALUES (?, ?, ?, ?)
+    ↓ JDBC executes
+  Oracle Database Row
+
+  Hibernate uses "naming strategy" to convert:
+    agntNbr → AGNT_NBR (camelCase to SNAKE_CASE)
+
+7.4 YOUR PROJECT ENTITIES
+─────────────────────────────────────────────────────────────────────────────────
+
+  AgencyAcctRouting    → AGENCY_ACCT_ROUTING table
+  ApplicationUsers     → OV_APPLICATION_USERS table
+  PremiumAuditRouting  → Premium audit routing table
+  R2BContractAgent     → R2B contract agent table
+  WinsValidation       → WINS validation table
+  Users                → Users table
+
+
+================================================================================
+PART 8: DTO LAYER DEEP EXPLANATION
+================================================================================
+
+8.1 WHAT IS DTO
+─────────────────────────────────────────────────────────────────────────────────
+
+DTO (Data Transfer Object):
+  A simple Java object used to transfer data between layers and to/from clients.
+  It acts as a contract between the API and the client.
+
+8.2 WHY DTO IS USED
+─────────────────────────────────────────────────────────────────────────────────
+
+  • Security: Don't expose internal entity structure to clients
+  • Flexibility: Return only needed fields
+  • Decoupling: Internal schema changes don't break API
+  • Custom fields: Add status/message without polluting entity
+  • Validation: Separate validation from persistence logic
+
+8.3 ENTITY vs DTO IN YOUR PROJECT
+─────────────────────────────────────────────────────────────────────────────────
+
+  AgencyAcctRouting (Entity):         AgencyAcctRoutingDTO (DTO):
+  ─────────────────────────           ─────────────────────────────
+  - id (Long)                         - id (Long)
+  - agntNbr (String)                  - agntNbr (String)
+  - entpsId (String)                  - entpsId (String)
+  - userId (String)                   - userId (String)
+                                      - status (String)  ← EXTRA: API response status
+                                      - message (String) ← EXTRA: Human-readable message
+
+  The DTO has EXTRA fields (status, message) that are NOT in the database!
+  These are response metadata for the client.
+
+8.4 DATA FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+  CLIENT REQUEST → JSON → DTO (input)
+                              ↓ ModelMapper
+                          ENTITY (persistence)
+                              ↓ Save to DB
+                          ENTITY (response from DB)
+                              ↓ ModelMapper
+                          DTO (output with status/message)
+                              ↓ Jackson
+  CLIENT RESPONSE ← JSON ← DTO
+
+  YOUR PROJECT USES ModelMapper:
+    AgencyAcctRouting entity = mapper.map(dto, AgencyAcctRouting.class);
+    AgencyAcctRoutingDTO dto = mapper.map(entity, AgencyAcctRoutingDTO.class);
+
+Interview Answer:
+  "DTOs decouple the API contract from the persistence model. They provide
+  data encapsulation, allow custom response shaping, and prevent exposing
+  internal entity details. We use ModelMapper/MapStruct for automatic
+  conversion."
+
+
+================================================================================
+PART 9: JWT AUTHENTICATION DEEP EXPLANATION
+================================================================================
+
+9.1 WHAT IS JWT
+─────────────────────────────────────────────────────────────────────────────────
+
+JWT (JSON Web Token):
+  A compact, URL-safe means of representing claims between two parties.
+  It's a stateless authentication mechanism - the server doesn't need to
+  store session data.
+
+YOUR PROJECT: Uses nimbus-jose-jwt library (version 9.37.4) for JWT processing,
+and a custom enterprise security starter (security-spring-boot-starter 3.1.7).
+
+9.2 JWT STRUCTURE
+─────────────────────────────────────────────────────────────────────────────────
+
+  xxxxx.yyyyy.zzzzz
+  HEADER.PAYLOAD.SIGNATURE
+
+  HEADER (Algorithm & Token Type):
+    {
+      "alg": "RS256",
+      "typ": "JWT"
+    }
+
+  PAYLOAD (Claims/Data):
+    {
+      "sub": "user123",
+      "name": "John Doe",
+      "roles": ["ADMIN"],
+      "iat": 1516239022,
+      "exp": 1516242622
+    }
+
+  SIGNATURE:
+    HMACSHA256(
+      base64UrlEncode(header) + "." + base64UrlEncode(payload),
+      secret
+    )
+
+9.3 YOUR PROJECT'S AUTHENTICATION FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+NOTE: Your project uses a HEADER-BASED authentication approach (not traditional JWT
+login flow). It uses enterprise SSO where the "X-User-Id" header is set by an
+API gateway/proxy after the user is authenticated via enterprise SSO.
+
+  FLOW IN YOUR PROJECT:
+  1. User logs in via Enterprise SSO (outside this service)
+  2. API Gateway/Proxy authenticates user
+  3. Gateway sets "X-User-Id" header in request
+  4. Request reaches this service with X-User-Id header
+  5. UserFilter extracts X-User-Id from header
+  6. Validates user exists in OV_APPLICATION_USERS table
+  7. Creates SecurityContext with authenticated user
+  8. Request proceeds to controller
+
+  This is a TRUST-BASED authentication pattern common in enterprise
+  microservices behind an API gateway.
+
+9.4 WHY THIS APPROACH (Enterprise Context)
+─────────────────────────────────────────────────────────────────────────────────
+
+  • API Gateway handles JWT/OAuth2 validation
+  • Internal services trust gateway's validated headers
+  • Reduces auth processing in each microservice
+  • Centralized authentication, distributed authorization
+  • Common in Zero-Trust enterprise architectures
+
+
+================================================================================
+PART 10: SPRING SECURITY DEEP EXPLANATION
+================================================================================
+
+10.1 SPRING SECURITY ARCHITECTURE
+─────────────────────────────────────────────────────────────────────────────────
+
+Spring Security is a powerful, customizable authentication and access-control
+framework. It is the de-facto standard for securing Spring-based applications.
+
+Core Concepts:
+  • Authentication: WHO are you? (identity verification)
+  • Authorization: WHAT can you do? (access control)
+  • Principal: Currently authenticated user
+  • GrantedAuthority: Permission/role assigned to principal
+  • SecurityContext: Holds authentication info for current request
+
+10.2 YOUR SECURITY CONFIGURATION ANALYSIS
+─────────────────────────────────────────────────────────────────────────────────
+
+@Configuration
+@EnableWebSecurity        ← Enables Spring Security web support
+@EnableMethodSecurity     ← Enables @PreAuthorize, @Secured on methods
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))  ← No HTTP sessions
+            .csrf(AbstractHttpConfigurer::disable)      ← CSRF disabled (stateless API)
+            .authorizeHttpRequests(auth ->
+                auth.anyRequest().authenticated())      ← ALL requests need auth
+            .securityContext(request ->
+                request.securityContextRepository(securityContextRepository()))
+            .addFilterBefore(usertFilter(),
+                UsernamePasswordAuthenticationFilter.class)  ← Custom filter BEFORE default
+            .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();  ← For password hashing
+    }
+
+    @Bean
+    public UserFilter usertFilter() {
+        return new UserFilter();  ← Custom authentication filter
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new DelegatingSecurityContextRepository(
+            new RequestAttributeSecurityContextRepository(),
+            new HttpSessionSecurityContextRepository());
+    }
+}
+
+10.3 CONFIGURATION DECISIONS EXPLAINED
+─────────────────────────────────────────────────────────────────────────────────
+
+  STATELESS Session:
+    SessionCreationPolicy.STATELESS
+    → No server-side session storage
+    → Each request must be authenticated independently
+    → Perfect for REST APIs
+
+  CSRF Disabled:
+    → CSRF protection not needed for stateless APIs
+    → No cookies/sessions to protect
+    → API uses header-based auth (X-User-Id)
+
+  All Requests Authenticated:
+    auth.anyRequest().authenticated()
+    → Every endpoint requires authentication
+    → No public endpoints (except actuator health - handled in filter)
+
+  Custom Filter Before Default:
+    addFilterBefore(userFilter, UsernamePasswordAuthenticationFilter.class)
+    → UserFilter runs BEFORE Spring's default auth filter
+    → Establishes authentication context
+
+10.4 SECURITY FILTER CHAIN ORDER
+─────────────────────────────────────────────────────────────────────────────────
+
+  Request → CorsFilter (HIGHEST_PRECEDENCE)
+          → SecurityFilterChain:
+            → UserFilter (custom - validates X-User-Id)
+            → UsernamePasswordAuthenticationFilter (skipped - replaced)
+            → ExceptionTranslationFilter
+            → AuthorizationFilter
+          → DispatcherServlet → Controller
+
+
+================================================================================
+PART 11: USER FILTER (AUTHENTICATION FILTER) INTERNAL WORKING
+================================================================================
+
+11.1 OncePerRequestFilter
+─────────────────────────────────────────────────────────────────────────────────
+
+UserFilter extends OncePerRequestFilter:
+  • Guarantees filter executes EXACTLY ONCE per request
+  • Even if request is forwarded internally
+  • Abstract doFilterInternal() method must be implemented
+
+11.2 YOUR FILTER COMPLETE FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+@Component
+public class UserFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private UserService userService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+            HttpServletResponse response, FilterChain filterChain) {
+
+        String url = request.getRequestURL().toString();
+
+        // STEP 1: Check if URL is unprotected
+        if (url.contains("/actuator/health") || url.contains("/favicon.ico")) {
+            // Allow without authentication
+            UsernamePasswordAuthenticationToken token =
+                new UsernamePasswordAuthenticationToken(null, null, null);
+            setDetails(request, response, token);
+            filterChain.doFilter(request, response);
+        } else {
+            // STEP 2: Extract user ID from header
+            String userId = request.getHeader("X-User-Id");
+
+            // STEP 3: Validate user
+            if (userId != null) {
+                ApplicationUsers user = userService.getUserById(userId);
+
+                if (user != null) {
+                    // STEP 4: Create authentication token
+                    UsernamePasswordAuthenticationToken token =
+                        new UsernamePasswordAuthenticationToken(user, null, null);
+
+                    // STEP 5: Set SecurityContext
+                    setDetails(request, response, token);
+                } else {
+                    throw new UnauthorizedException(ERROR_UNAUTHORIZED);
+                }
+            } else {
+                throw new UnauthorizedException(USER_NOT_FOUND);
+            }
+
+            // STEP 6: Continue filter chain
+            filterChain.doFilter(request, response);
+        }
+    }
+}
+
+11.3 setDetails() METHOD - SETTING SECURITY CONTEXT
+─────────────────────────────────────────────────────────────────────────────────
+
+private void setDetails(HttpServletRequest request, HttpServletResponse response,
+        UsernamePasswordAuthenticationToken token) {
+    // 1. Add request details to token
+    token.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+    // 2. Get current security context
+    SecurityContext sc = SecurityContextHolder.getContext();
+
+    // 3. Set authentication in context
+    sc.setAuthentication(token);
+
+    // 4. Persist context
+    new DelegatingSecurityContextRepository(...).saveContext(sc, request, response);
+}
+
+INTERNAL FLOW:
+  SecurityContextHolder → ThreadLocal storage
+  Each thread (request) has its own SecurityContext
+  After filter: other Spring Security components can check
+    SecurityContextHolder.getContext().getAuthentication()
+
+Interview Answer:
+  "OncePerRequestFilter guarantees single execution per request. Our custom
+  filter extracts the user identity from a trusted header (set by API gateway),
+  validates the user exists in our database, creates an Authentication token,
+  and stores it in SecurityContextHolder's ThreadLocal SecurityContext."
+
+
+================================================================================
+PART 12: AUTHORIZATION DEEP EXPLANATION
+================================================================================
+
+12.1 ROLE-BASED AUTHORIZATION
+─────────────────────────────────────────────────────────────────────────────────
+
+Authorization determines WHAT an authenticated user can ACCESS.
+
+YOUR PROJECT:
+  @EnableMethodSecurity is configured but currently all authenticated users
+  have access to all endpoints. The ApplicationUsers entity tracks user
+  permissions through ApplicationSecurityLevel entity.
+
+12.2 AUTHORIZATION ANNOTATIONS
+─────────────────────────────────────────────────────────────────────────────────
+
+  @PreAuthorize("hasRole('ADMIN')")        → Check role before method
+  @PreAuthorize("hasAuthority('READ')")    → Check authority
+  @Secured("ROLE_ADMIN")                   → Simpler role check
+  @RolesAllowed("ADMIN")                   → JSR-250 standard
+
+12.3 ENTERPRISE ROLE ACCESS FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+  Request → Filter validates identity → SecurityContext stores user
+    → Controller method called
+    → @PreAuthorize checks roles/authorities
+    → If authorized → method executes
+    → If not → AccessDeniedException → 403 Forbidden
+
+
+================================================================================
+PART 13: EXCEPTION HANDLING DEEP EXPLANATION
+================================================================================
+
+13.1 YOUR GLOBAL EXCEPTION HANDLER
+─────────────────────────────────────────────────────────────────────────────────
+
+@RestControllerAdvice    ← Applies to all controllers
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AlreadyExistException.class)
+    public ResponseEntity<ErrorResponseDTO> handleAlreadyExist(AlreadyExistException ex) {
+        ErrorResponseDTO error = new ErrorResponseDTO(
+            LocalDateTime.now(), ex.getMessage(), "value is Already Exist");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleNotFound(NotFoundException ex) {
+        ErrorResponseDTO error = new ErrorResponseDTO(
+            LocalDateTime.now(), ex.getMessage(), "value not found");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleNoResource(NoResourceFoundException ex) {
+        ErrorResponseDTO error = new ErrorResponseDTO(
+            LocalDateTime.now(), ex.getMessage(), "URL not found on server");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(Exception.class)  ← Catch-all fallback
+    public ResponseEntity<ErrorResponseDTO> handleAll(Exception ex) {
+        ErrorResponseDTO error = new ErrorResponseDTO(
+            LocalDateTime.now(), ex.getMessage(), "Internal server error");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+}
+
+13.2 HOW @ControllerAdvice WORKS INTERNALLY
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. Exception thrown in controller/service
+  2. Exception propagates up the call stack
+  3. ExceptionHandlerExceptionResolver intercepts
+  4. Finds matching @ExceptionHandler in @ControllerAdvice classes
+  5. Most specific handler wins (AlreadyExistException before Exception)
+  6. Handler creates ErrorResponseDTO
+  7. Returns ResponseEntity with appropriate HTTP status
+  8. Client receives structured error JSON:
+
+  {
+    "timestamp": "2026-06-08T10:30:00",
+    "message": "Agent number 12345 already exists",
+    "details": "value is Already Exist"
+  }
+
+13.3 YOUR CUSTOM EXCEPTIONS
+─────────────────────────────────────────────────────────────────────────────────
+
+  AlreadyExistException       → 409 CONFLICT (duplicate record)
+  NotFoundException           → 404 NOT_FOUND (record doesn't exist)
+  UnauthorizedException       → 401 UNAUTHORIZED (auth failure)
+  AgencyAcctRoutingException  → Business logic errors
+  PremiumAuditRoutingException → Business logic errors
+  R2BContractAgentException   → Business logic errors
+
+13.4 EXCEPTION HIERARCHY
+─────────────────────────────────────────────────────────────────────────────────
+
+  Exception (Java)
+    ├── RuntimeException (unchecked)
+    │   ├── AlreadyExistException (custom)
+    │   └── NotFoundException (custom)
+    └── Exception (checked)
+        ├── UnauthorizedException (custom)
+        ├── AgencyAcctRoutingException (custom)
+        └── PremiumAuditRoutingException (custom)
+
+Interview Answer:
+  "@ControllerAdvice acts as a global exception interceptor. When any
+  controller throws an exception, @ExceptionHandler methods catch it,
+  transform it to a consistent ErrorResponseDTO, and return with an
+  appropriate HTTP status. This centralizes error handling and ensures
+  uniform API error responses."
+
+
+================================================================================
+PART 14: CONFIGURATION LAYER DEEP EXPLANATION
+================================================================================
+
+14.1 @Configuration
+─────────────────────────────────────────────────────────────────────────────────
+
+@Configuration marks a class as a source of bean definitions.
+Spring processes it at startup to create and register beans.
+
+YOUR CONFIGURATIONS:
+  SecurityConfig      → Security beans (FilterChain, PasswordEncoder)
+  ModelMapperConfig   → ModelMapper bean
+  CorsFilter          → CORS configuration (as a Filter)
+
+14.2 @Bean ANNOTATION
+─────────────────────────────────────────────────────────────────────────────────
+
+@Bean tells Spring: "call this method and register the return value as a bean"
+
+@Configuration
+public class ModelMapperConfig {
+    @Bean
+    ModelMapper mapper() {
+        return new ModelMapper();  ← Spring manages this instance
+    }
+}
+
+Now anywhere in your app:
+    @Autowired
+    private ModelMapper mapper;  ← Gets the same singleton instance
+
+14.3 INTERNAL BEAN CREATION FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. Spring finds @Configuration class during component scan
+  2. Creates CGLIB proxy of the configuration class
+  3. Calls @Bean methods to get bean instances
+  4. Registers beans in ApplicationContext by method name
+  5. When @Autowired is encountered, looks up bean by type/name
+  6. Injects the registered bean instance
+
+14.4 CORS FILTER CONFIGURATION
+─────────────────────────────────────────────────────────────────────────────────
+
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)  ← Executes FIRST in filter chain
+public class CorsFilter implements Filter {
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Methods", "POST, PUT, GET, OPTIONS, DELETE");
+    response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-User-Id, ...");
+}
+
+WHY CORS?
+  → Browser security prevents cross-origin requests
+  → Frontend (React/Angular) on different domain than backend
+  → CORS headers tell browser: "This cross-origin request is allowed"
+  → HIGHEST_PRECEDENCE ensures it runs before security filter
+
+
+================================================================================
+PART 15: DATABASE INTEGRATION DEEP EXPLANATION
+================================================================================
+
+15.1 YOUR DATABASE SETUP
+─────────────────────────────────────────────────────────────────────────────────
+
+Database: Oracle 19c (production) / H2 (testing)
+Driver: ojdbc8 19.3.0.0
+ORM: Hibernate (via Spring Data JPA)
+Connection: Externalized via environment variables
+
+Configuration:
+  spring.datasource.url=${OMNIVIEW_DB_URL}
+  spring.datasource.username=${OMNIVIEW_DB_USR}
+  spring.datasource.password=${SECRET_OMNIVIEW_DB_SEC}
+  spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+  spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.OracleDialect
+  spring.jpa.hibernate.ddl-auto=none  ← Don't auto-create/modify tables
+
+15.2 HIBERNATE INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+Hibernate is the JPA implementation that:
+  1. Reads @Entity annotations to understand table structure
+  2. Manages entity lifecycle (transient, persistent, detached, removed)
+  3. Generates SQL from JPQL or method names
+  4. Uses first-level cache (per-session) for performance
+  5. Handles dirty checking (detects field changes)
+  6. Manages database connections via connection pool
+
+15.3 JPA ENTITY LIFECYCLE
+─────────────────────────────────────────────────────────────────────────────────
+
+  NEW (Transient)     → Object created with 'new', not yet persisted
+  MANAGED (Persistent) → Object tracked by Hibernate, changes auto-synced
+  DETACHED            → Was managed, but session closed
+  REMOVED             → Marked for deletion
+
+  AgencyAcctRouting entity = mapper.map(dto, AgencyAcctRouting.class);  → TRANSIENT
+  agencyAcctRoutingRepo.save(entity);  → MANAGED (Hibernate tracks it)
+  // After transaction ends → DETACHED
+
+15.4 ENTITY MANAGER & TRANSACTION LIFECYCLE
+─────────────────────────────────────────────────────────────────────────────────
+
+  @Transactional method called
+    → TransactionManager.begin()
+    → EntityManager obtained from EntityManagerFactory
+    → Operations execute (persist, merge, remove, find)
+    → Flush (SQL generated and sent to DB)
+    → TransactionManager.commit()
+    → Connection released to pool
+
+  On Exception:
+    → TransactionManager.rollback()
+    → Connection released to pool
+
+15.5 CONNECTION POOLING
+─────────────────────────────────────────────────────────────────────────────────
+
+Spring Boot uses HikariCP by default:
+  • Maintains pool of database connections
+  • Reuses connections instead of creating new ones
+  • Dramatically improves performance
+  • Default pool size: 10 connections
+
+
+================================================================================
+PART 16: COMPLETE END-TO-END ENTERPRISE REQUEST FLOW
+================================================================================
+
+SCENARIO: Client creates a new Agency Account Routing
+
+REQUEST: POST /agency-acct-routings
+HEADERS: Content-Type: application/json, X-User-Id: JSMITH
+BODY: {"agntNbr": "12345", "entpsId": "ENT001", "userId": "JSMITH"}
+
+STEP-BY-STEP INTERNAL FLOW:
+─────────────────────────────────────────────────────────────────────────────────
+
+① CLIENT → TOMCAT (port 8080)
+   HTTP request arrives at embedded Tomcat server
+
+② CORS FILTER (Ordered.HIGHEST_PRECEDENCE)
+   - Sets Access-Control-Allow-Origin: *
+   - Sets Access-Control-Allow-Methods: POST, PUT, GET, OPTIONS, DELETE
+   - Calls filterChain.doFilter() → passes to next filter
+
+③ SECURITY FILTER CHAIN → USER FILTER
+   - Extracts URL: /agency-acct-routings (not actuator/health)
+   - Extracts header: X-User-Id = "JSMITH"
+   - Calls userService.getUserById("JSMITH")
+     → applicationUsersRepo.findByUserId("JSMITH")
+     → Hibernate: SELECT * FROM OV_APPLICATION_USERS WHERE USER_ID = 'JSMITH'
+     → Returns ApplicationUsers object
+   - User found! Creates UsernamePasswordAuthenticationToken(user, null, null)
+   - Sets SecurityContext via SecurityContextHolder
+   - Calls filterChain.doFilter() → passes to DispatcherServlet
+
+④ DISPATCHER SERVLET
+   - Receives authenticated request
+   - HandlerMapping: maps POST /agency-acct-routings to
+     AgencyAcctRoutingController.saveAgencyAcctRouting()
+   - HandlerAdapter: prepares to invoke method
+
+⑤ ARGUMENT RESOLUTION
+   - @RequestBody → Jackson ObjectMapper reads JSON body
+   - Deserializes to AgencyAcctRoutingDTO object:
+     {agntNbr: "12345", entpsId: "ENT001", userId: "JSMITH"}
+
+⑥ CONTROLLER LAYER
+   - saveAgencyAcctRouting(dto) called
+   - Delegates to service: agencyAcctRoutingService.saveAgentAcctRouting(dto)
+
+⑦ SERVICE LAYER (Business Logic)
+   a) Validate user: usersRepo.existsByUserId("JSMITH")
+      → SQL: SELECT CASE WHEN COUNT(*)>0 ... FROM USERS WHERE USER_ID='JSMITH'
+      → Returns true
+
+   b) Check duplicate: agencyAcctRoutingRepo.findFirstByAgntNbrAndEntpsId("12345", "ENT001")
+      → SQL: SELECT * FROM AGENCY_ACCT_ROUTING WHERE AGNT_NBR='12345' AND ENTPS_ID='ENT001' FETCH FIRST 1 ROW
+      → Returns null (not exists)
+
+   c) Map DTO to Entity: mapper.map(dto, AgencyAcctRouting.class)
+      → Creates new AgencyAcctRouting entity
+
+   d) Save: agencyAcctRoutingRepo.save(entity)
+      → Hibernate gets next sequence value: SELECT SEQ_AGENCY_ACCT_ROUTING.NEXTVAL FROM DUAL
+      → Sets entity.id = 42
+      → INSERT INTO AGENCY_ACCT_ROUTING (ID, AGNT_NBR, ENTPS_ID, USER_ID) VALUES (42, '12345', 'ENT001', 'JSMITH')
+      → Oracle commits
+
+   e) Map Entity to DTO: mapper.map(savedEntity, AgencyAcctRoutingDTO.class)
+   f) Set status: dto.setStatus("CREATED"), dto.setMessage("Created")
+
+⑧ CONTROLLER RESPONSE
+   - Receives DTO with status "CREATED"
+   - Returns: new ResponseEntity<>(dto, HttpStatus.CREATED)  → HTTP 201
+
+⑨ RESPONSE SERIALIZATION
+   - Jackson serializes AgencyAcctRoutingDTO to JSON:
+     {"id":42, "agntNbr":"12345", "entpsId":"ENT001", "userId":"JSMITH",
+      "status":"CREATED", "message":"AgencyAcctRouting number is Created"}
+
+⑩ CLIENT RECEIVES
+   - HTTP 201 Created
+   - JSON response body
+   - Total processing: ~50-200ms
+
+
+================================================================================
+PART 17: DEPENDENCY INJECTION INTERNAL WORKING
+================================================================================
+
+17.1 WHAT IS DEPENDENCY INJECTION
+─────────────────────────────────────────────────────────────────────────────────
+
+Definition:
+  A design pattern where objects receive their dependencies from an external
+  source (IoC container) rather than creating them internally.
+
+Without DI:
+  public class AgencyAcctRoutingController {
+      private AgencyAcctRoutingService service = new AgencyAcctRoutingServiceImpl();
+      // Tightly coupled! Can't mock for testing.
+  }
+
+With DI (Your Project):
+  public class AgencyAcctRoutingController {
+      @Autowired
+      private AgencyAcctRoutingService service;  // Spring injects this!
+  }
+
+17.2 IoC CONTAINER
+─────────────────────────────────────────────────────────────────────────────────
+
+IoC (Inversion of Control):
+  YOU don't control object creation → SPRING controls it.
+  The ApplicationContext IS the IoC container.
+
+  ApplicationContext contains:
+  - BeanFactory (creates beans)
+  - BeanDefinitionRegistry (stores bean metadata)
+  - BeanPostProcessors (modify beans after creation)
+  - AutowireCapableBeanFactory (resolves dependencies)
+
+17.3 BEAN LIFECYCLE IN YOUR PROJECT
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. ComponentScan finds: @Service, @Repository, @Component, @RestController
+  2. BeanDefinition created for each (class, scope, dependencies)
+  3. Beans instantiated in dependency order:
+     - ModelMapper (no deps)
+     - Repositories (depends on EntityManager)
+     - UserService (depends on ApplicationUsersRepo)
+     - UserFilter (depends on UserService)
+     - ServiceImpl (depends on Repos, ModelMapper)
+     - Controllers (depends on Services)
+  4. Dependencies injected (@Autowired)
+  5. @PostConstruct methods called
+  6. Beans ready for use
+
+17.4 BEAN SCOPES
+─────────────────────────────────────────────────────────────────────────────────
+
+  Singleton (DEFAULT) → One instance for entire application lifecycle
+  Prototype          → New instance every time requested
+  Request            → One instance per HTTP request
+  Session            → One instance per HTTP session
+  Application        → One instance per ServletContext
+
+YOUR PROJECT: All beans are Singleton (default) - one controller instance,
+one service instance, one repository instance serves ALL requests.
+
+17.5 INJECTION TYPES
+─────────────────────────────────────────────────────────────────────────────────
+
+  Field Injection (Your project uses this):
+    @Autowired
+    private AgencyAcctRoutingService service;
+
+  Constructor Injection (Best Practice):
+    public AgencyAcctRoutingServiceImpl(AgencyAcctRoutingRepo repo, ModelMapper mapper) {
+        this.repo = repo;
+        this.mapper = mapper;
+    }
+
+  Setter Injection:
+    @Autowired
+    public void setService(AgencyAcctRoutingService service) { ... }
+
+YOUR PROJECT: Uses both field injection (@Autowired) and constructor injection
+(AgencyAcctRoutingServiceImpl has a constructor with all dependencies).
+
+Interview Answer:
+  "Constructor injection is preferred because it ensures immutability,
+  makes dependencies explicit, fails fast on missing dependencies, and
+  makes testing easier. Field injection hides dependencies and complicates
+  testing."
+
+
+================================================================================
+PART 18: SPRING BOOT INTERNAL WORKING
+================================================================================
+
+18.1 AUTO-CONFIGURATION INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+How Spring Boot decides what to auto-configure:
+
+  1. Reads META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+  2. Each auto-config class has @Conditional annotations:
+     - @ConditionalOnClass: Only if class on classpath
+     - @ConditionalOnMissingBean: Only if you haven't defined one
+     - @ConditionalOnProperty: Only if property is set
+
+  YOUR PROJECT EXAMPLE:
+    DataSourceAutoConfiguration triggers because:
+    - @ConditionalOnClass(DataSource.class) ← JPA starter provides this
+    - Reads spring.datasource.url from properties
+    - Creates HikariDataSource bean
+
+    JpaRepositoriesAutoConfiguration triggers because:
+    - @ConditionalOnClass(JpaRepository.class) ← JPA starter provides this
+    - Scans for interfaces extending JpaRepository
+    - Creates proxy implementations
+
+18.2 DISPATCHER SERVLET INTERNAL WORKING
+─────────────────────────────────────────────────────────────────────────────────
+
+DispatcherServlet is the FRONT CONTROLLER pattern implementation:
+
+  Request → DispatcherServlet
+    │
+    ├─1→ HandlerMapping.getHandler(request)
+    │    Uses RequestMappingHandlerMapping
+    │    Finds: AgencyAcctRoutingController.saveAgencyAcctRouting()
+    │
+    ├─2→ HandlerAdapter.handle(request, response, handler)
+    │    Uses RequestMappingHandlerAdapter
+    │    Resolves method arguments (@RequestBody, @PathVariable, etc.)
+    │    Invokes controller method
+    │
+    ├─3→ Return value handling
+    │    HttpMessageConverter (Jackson) serializes to JSON
+    │    Writes to response output stream
+    │
+    └─4→ Response sent to client
+
+18.3 REQUEST MAPPING FLOW
+─────────────────────────────────────────────────────────────────────────────────
+
+At startup:
+  RequestMappingHandlerMapping scans all @Controller/@RestController beans
+  Builds a mapping registry:
+    POST /agency-acct-routings → AgencyAcctRoutingController.saveAgencyAcctRouting()
+    GET  /agency-acct-routings → AgencyAcctRoutingController.retrieveAllAgencyAcctRouting()
+    GET  /agency-acct-routings/search → AgencyAcctRoutingController.retrieveAgencyAcctRouting()
+    PUT  /agency-acct-routings → AgencyAcctRoutingController.updateAgencyAcctRouting()
+    DELETE /agency-acct-routings/{id} → AgencyAcctRoutingController.deleteAllAgencyAcctRoutingDetails()
+
+At runtime:
+  Matches incoming request URL + HTTP method to the registry
+  Returns the matched handler method
+
+
+================================================================================
+PART 19: PERFORMANCE OPTIMIZATION
+================================================================================
+
+19.1 CACHING
+─────────────────────────────────────────────────────────────────────────────────
+
+  • First-Level Cache: Hibernate Session cache (automatic, per-transaction)
+  • Second-Level Cache: Shared across sessions (EhCache, Redis)
+  • Application Cache: @Cacheable for frequently accessed data
+  • Query Cache: Cache query results
+
+  YOUR PROJECT OPPORTUNITY:
+    UserService.getUserById() is called on EVERY request.
+    Adding @Cacheable would eliminate repeated DB calls.
+
+19.2 CONNECTION POOLING
+─────────────────────────────────────────────────────────────────────────────────
+
+  Spring Boot uses HikariCP by default:
+    spring.datasource.hikari.maximum-pool-size=10  (default)
+    spring.datasource.hikari.minimum-idle=10
+    spring.datasource.hikari.idle-timeout=600000
+    spring.datasource.hikari.max-lifetime=1800000
+
+19.3 LAZY LOADING
+─────────────────────────────────────────────────────────────────────────────────
+
+  @OneToMany(fetch = FetchType.LAZY)  ← Load related entities only when accessed
+  @ManyToOne(fetch = FetchType.EAGER) ← Load immediately (default for @ManyToOne)
+
+  Lazy loading prevents N+1 query problem by not loading relationships
+  until explicitly accessed.
+
+19.4 TRANSACTION OPTIMIZATION
+─────────────────────────────────────────────────────────────────────────────────
+
+  @Transactional(readOnly = true)  ← Optimizes read operations (no dirty checking)
+  @Transactional(propagation = Propagation.REQUIRES_NEW) ← New transaction
+  Batch operations: spring.jpa.properties.hibernate.jdbc.batch_size=50
+
+
+================================================================================
+PART 20: ENTERPRISE BEST PRACTICES
+================================================================================
+
+20.1 ARCHITECTURE BEST PRACTICES
+─────────────────────────────────────────────────────────────────────────────────
+
+  ✅ Layered architecture (Controller → Service → Repository)
+  ✅ Interface-based services (loose coupling)
+  ✅ DTO pattern (decouple API from persistence)
+  ✅ Global exception handling (@ControllerAdvice)
+  ✅ Environment-specific configs (dev/prod/pt profiles)
+  ✅ Externalized secrets (environment variables)
+  ✅ Stateless security (no sessions)
+  ✅ CORS configuration
+  ✅ Health endpoints (actuator)
+  ✅ Code coverage (JaCoCo)
+  ✅ Custom authentication filter
+  ✅ Oracle sequence for ID generation
+
+20.2 SECURITY BEST PRACTICES IN YOUR PROJECT
+─────────────────────────────────────────────────────────────────────────────────
+
+  ✅ Stateless session management
+  ✅ CSRF disabled (appropriate for stateless API)
+  ✅ All endpoints authenticated
+  ✅ Password encoder configured (BCrypt)
+  ✅ Secure cookies (server.servlet.session.cookie.secure=true)
+  ✅ HttpOnly cookies (server.servlet.session.cookie.http-only=true)
+  ✅ Custom security filter for enterprise auth
+  ✅ Exception resolver for auth failures
+
+20.3 CODE QUALITY BEST PRACTICES
+─────────────────────────────────────────────────────────────────────────────────
+
+  ✅ SonarQube integration (sonar-project.properties)
+  ✅ JaCoCo code coverage
+  ✅ Unit tests with JUnit 5 + Mockito
+  ✅ Separation of concerns
+  ✅ Constants class (no magic strings)
+  ✅ Meaningful exception messages
+
+20.4 AREAS FOR IMPROVEMENT (Senior-Level Review)
+─────────────────────────────────────────────────────────────────────────────────
+
+  ⚠️ Use constructor injection over @Autowired field injection
+  ⚠️ Add @Validated and Bean Validation (@NotNull, @NotBlank) on DTOs
+  ⚠️ Use ResponseEntity.ok() builders instead of new ResponseEntity<>()
+  ⚠️ Add @Transactional(readOnly=true) on read methods
+  ⚠️ Add pagination for getAll methods (currently unbounded)
+  ⚠️ Add Swagger/OpenAPI annotations on controllers
+  ⚠️ Consider using MapStruct instead of ModelMapper (compile-time, faster)
+  ⚠️ Add request/response logging via filter or AOP
+  ⚠️ Add rate limiting for API protection
+  ⚠️ Add input sanitization to prevent injection
+
+
+================================================================================
+PART 21: INTERVIEW QUESTIONS AND ANSWERS
+================================================================================
+
+═══════════════════════════════════════════════════════════════════════════════════
+BEGINNER LEVEL
+═══════════════════════════════════════════════════════════════════════════════════
+
+Q1: What is the difference between @Controller and @RestController?
+A: @RestController = @Controller + @ResponseBody. @Controller returns view names
+   (for MVC), while @RestController returns data directly serialized to JSON/XML.
+
+Q2: What is Spring Boot Auto Configuration?
+A: Auto-configuration automatically creates and configures beans based on
+   classpath dependencies and properties. For example, if spring-boot-starter-data-jpa
+   is on classpath and spring.datasource.url is set, Spring Boot auto-creates
+   DataSource, EntityManagerFactory, and TransactionManager beans.
+
+Q3: What is the purpose of @Autowired?
+A: @Autowired tells Spring to inject a matching bean from the ApplicationContext
+   into the annotated field/constructor/setter. Spring resolves by type, then by
+   name if ambiguous.
+
+Q4: What are HTTP status codes used in REST APIs?
+A: 200 OK, 201 Created, 204 No Content, 400 Bad Request, 401 Unauthorized,
+   403 Forbidden, 404 Not Found, 409 Conflict, 500 Internal Server Error.
+
+Q5: What is the difference between @RequestParam and @PathVariable?
+A: @RequestParam extracts query parameters (/search?agntNbr=123),
+   @PathVariable extracts from URL path (/agency-acct-routings/{id}).
+
+═══════════════════════════════════════════════════════════════════════════════════
+INTERMEDIATE LEVEL
+═══════════════════════════════════════════════════════════════════════════════════
+
+Q6: Explain Spring Data JPA derived query methods.
+A: Spring Data JPA generates SQL from method names at startup. Example:
+   findByAgntNbrAndEntpsId(String agntNbr, String entpsId) generates:
+   SELECT * FROM TABLE WHERE AGNT_NBR=? AND ENTPS_ID=?
+   It parses the method name into subject, predicate, and criteria.
+
+Q7: What is @Transactional and how does it work internally?
+A: @Transactional creates a proxy around the bean. When the method is called,
+   the proxy intercepts, begins a transaction, executes the method, commits
+   on success, or rolls back on RuntimeException. It uses AOP (CGLIB proxy
+   for classes, JDK proxy for interfaces).
+
+Q8: What is the DTO pattern and why use it?
+A: DTO decouples API contract from persistence model. Benefits: security
+   (don't expose internal structure), flexibility (custom response shape),
+   validation separation, and backward compatibility when schema changes.
+
+Q9: Explain OncePerRequestFilter.
+A: OncePerRequestFilter guarantees the filter executes exactly once per
+   request, even if the request is forwarded/included internally. It uses
+   a request attribute flag to track execution.
+
+Q10: What is the difference between JPA and Hibernate?
+A: JPA is a specification (interface/standard). Hibernate is an implementation
+    of JPA. Spring Data JPA is an abstraction on top of JPA that provides
+    repository pattern with auto-implemented CRUD operations.
+
+═══════════════════════════════════════════════════════════════════════════════════
+ADVANCED LEVEL
+═══════════════════════════════════════════════════════════════════════════════════
+
+Q11: Explain Spring Security filter chain execution order.
+A: Filters execute in defined order:
+   SecurityContextPersistenceFilter → HeaderWriterFilter → CorsFilter →
+   CsrfFilter → LogoutFilter → CustomFilter (UserFilter) →
+   UsernamePasswordAuthenticationFilter → ExceptionTranslationFilter →
+   AuthorizationFilter. Each filter either passes request to next or
+   short-circuits with error response.
+
+Q12: How does Spring create proxy implementations for Repository interfaces?
+A: At startup, Spring scans for interfaces extending JpaRepository, creates
+   JDK Dynamic Proxy using RepositoryFactorySupport. The proxy's invocation
+   handler delegates to SimpleJpaRepository for standard methods, uses
+   QueryExecutorMethodInterceptor for derived queries (parsed from method
+   names), and JpaQueryMethod for @Query annotated methods.
+
+Q13: Explain Hibernate first-level cache and dirty checking.
+A: First-level cache (persistence context) stores entities loaded in current
+   session. When transaction commits, Hibernate compares current state of all
+   managed entities with their snapshot from load time (dirty checking). If
+   changed, it auto-generates UPDATE SQL. This means you can modify an entity
+   without calling save() - Hibernate detects and persists changes.
+
+Q14: How does @ControllerAdvice work internally?
+A: Spring registers @ControllerAdvice beans as ExceptionHandlerExceptionResolver
+   advice. When a controller throws an exception, the resolver finds the most
+   specific @ExceptionHandler matching the exception type, invokes it, and
+   uses its return value as the response. Resolution order: same-controller
+   handlers first, then @ControllerAdvice handlers sorted by @Order.
+
+Q15: Explain how Spring resolves @Autowired dependencies with multiple candidates.
+A: Spring first matches by type. If multiple beans of same type exist, it
+   tries: 1) @Qualifier annotation, 2) bean name matching field name,
+   3) @Primary annotated bean. If ambiguous, NoUniqueBeanDefinitionException
+   is thrown.
+
+═══════════════════════════════════════════════════════════════════════════════════
+SENIOR ARCHITECT LEVEL
+═══════════════════════════════════════════════════════════════════════════════════
+
+Q16: How would you design authentication for a microservices architecture?
+A: Use API Gateway pattern with centralized authentication:
+   1. Gateway validates JWT/OAuth2 tokens
+   2. Extracts user claims and forwards as trusted headers (like X-User-Id)
+   3. Internal services trust gateway headers (your project's approach)
+   4. Each service validates user exists and checks permissions locally
+   5. Service-to-service uses mutual TLS or internal tokens
+   6. Token refresh handled at gateway level
+
+Q17: How would you handle the N+1 query problem in this project?
+A: Identify lazy relationships causing N+1 queries. Solutions:
+   1. JOIN FETCH in JPQL queries
+   2. @EntityGraph annotation for dynamic eager loading
+   3. @BatchSize for batch lazy loading
+   4. DTO projections (SELECT new DTO(...))
+   5. Avoid lazy loading in controller (use DTOs before transaction closes)
+
+Q18: How would you make this service horizontally scalable?
+A: Since it's already STATELESS (no sessions, no local state):
+   1. Deploy multiple instances behind load balancer
+   2. Database is shared (Oracle) - handles concurrent access
+   3. Add @Cacheable with Redis for shared cache
+   4. Add circuit breaker (Resilience4j) for fault tolerance
+   5. Add health checks (already has actuator)
+   6. Containerize with Docker, orchestrate with Kubernetes
+
+Q19: How would you implement eventual consistency across microservices?
+A: Use event-driven architecture:
+   1. Publish domain events after successful operations
+   2. Use Kafka/RabbitMQ for reliable event delivery
+   3. Implement Saga pattern for distributed transactions
+   4. Use Outbox pattern for guaranteed event publishing
+   5. Idempotent consumers for at-least-once delivery
+
+Q20: Explain your approach to designing exception handling strategy.
+A: Layered exception strategy:
+   1. Domain exceptions (business rule violations)
+   2. Infrastructure exceptions (DB, network failures)
+   3. Global @ControllerAdvice with hierarchy:
+      - Business exceptions → 4xx with specific messages
+      - Infrastructure exceptions → 5xx with generic messages
+      - Never expose stack traces in production
+   4. Correlation IDs for tracing across services
+   5. Structured logging (JSON) for observability
+   6. Error codes catalog for client interpretation
+
+═══════════════════════════════════════════════════════════════════════════════════
+SCENARIO-BASED QUESTIONS
+═══════════════════════════════════════════════════════════════════════════════════
+
+Q21: Your service is getting 504 Gateway Timeout on heavy search queries. How to fix?
+A: 1. Add pagination to retrieveAllAgencyAcctRouting() (currently unbounded)
+   2. Add database indexes on frequently searched columns (agntNbr, entpsId)
+   3. Implement query timeout: @QueryHints(@QueryHint(name="jakarta.persistence.query.timeout", value="5000"))
+   4. Add Redis caching for repeated queries
+   5. Consider read replicas for query load
+   6. Add connection pool monitoring (HikariCP metrics via actuator)
+
+Q22: How would you handle concurrent updates to the same record?
+A: Implement optimistic locking:
+   1. Add @Version field to entity
+   2. Hibernate includes version in WHERE clause of UPDATE
+   3. If version doesn't match, throws OptimisticLockException
+   4. Service catches and retries or returns 409 CONFLICT
+   (Your project already handles ObjectOptimisticLockingFailureException
+    in R2BContractAgentController)
+
+Q23: UserFilter is called on every request, hitting DB each time. How to optimize?
+A: 1. Add Spring Cache (@Cacheable) on getUserById() with TTL
+   2. Use Redis/Caffeine for distributed/local cache
+   3. Cache invalidation on user update/delete
+   4. Consider caching at gateway level
+   5. Add cache-control headers for client-side caching
+
+Q24: How would you add audit logging to track all data changes?
+A: 1. Use Spring Data JPA Auditing (@CreatedBy, @LastModifiedBy, @CreatedDate)
+   2. Implement Hibernate Envers for complete audit trail
+   3. Add AOP aspect for cross-cutting audit logic
+   4. Publish audit events to separate audit store
+   5. Your project already has audit entities (ApplicationAgentAudit, ApplicationR2BAudit)
+
+
+================================================================================
+PART 22: KEY CONCEPTS SUMMARY FOR QUICK REVISION
+================================================================================
+
+SPRING BOOT ANNOTATIONS CHEAT SHEET:
+─────────────────────────────────────────────────────────────────────────────────
+
+  APPLICATION:
+    @SpringBootApplication = @Configuration + @EnableAutoConfiguration + @ComponentScan
+
+  CONTROLLER:
+    @RestController, @RequestMapping, @GetMapping, @PostMapping
+    @PutMapping, @DeleteMapping, @PathVariable, @RequestParam, @RequestBody
+
+  SERVICE:
+    @Service, @Transactional
+
+  REPOSITORY:
+    @Repository, @Query, @Modifying, @Param
+
+  ENTITY:
+    @Entity, @Table, @Id, @GeneratedValue, @Column, @SequenceGenerator
+
+  CONFIGURATION:
+    @Configuration, @Bean, @EnableWebSecurity, @EnableMethodSecurity
+
+  DEPENDENCY INJECTION:
+    @Autowired, @Qualifier, @Primary, @Component
+
+  SECURITY:
+    @EnableWebSecurity, @PreAuthorize, @Secured
+
+  EXCEPTION:
+    @RestControllerAdvice, @ExceptionHandler
+
+  TESTING:
+    @SpringBootTest, @WebMvcTest, @DataJpaTest, @MockBean
+
+DESIGN PATTERNS IN YOUR PROJECT:
+─────────────────────────────────────────────────────────────────────────────────
+
+  1. MVC Pattern         → Controller-Service-Repository layers
+  2. Repository Pattern  → Data access abstraction
+  3. DTO Pattern         → Data transfer between layers
+  4. Factory Pattern     → Bean creation by Spring container
+  5. Singleton Pattern   → Default bean scope
+  6. Proxy Pattern       → AOP, @Transactional, JPA repositories
+  7. Template Pattern    → JpaRepository provides CRUD template
+  8. Chain of Responsibility → Filter chain (CorsFilter → UserFilter → ...)
+  9. Strategy Pattern    → Interface + multiple implementations
+  10. Front Controller   → DispatcherServlet
+
+================================================================================
+END OF ANALYSIS - Prepared for Senior Java Spring Boot Developer Interviews
+================================================================================
