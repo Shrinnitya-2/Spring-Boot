@@ -1,4 +1,3 @@
-
 package com.java8Practice.Strings;
 
 public class RemoveDuplicatesString {
