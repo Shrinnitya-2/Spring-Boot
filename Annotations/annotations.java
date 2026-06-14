@@ -34,4 +34,45 @@ container to generate bean definitions.
   Definition: Indicates that an XML configuration file should be imported. 
   Why it is used: To load legacy XML configuration in a Spring Boot application. 
   Example: 
-    @ImportResource(locations = "in/ineuron/cfg/applicationContext.xml") 
+    @ImportResource(locations = "in/ineuron/cfg/applicationContext.xml")
+
+@Named 
+  Definition: Standard equivalent to @Component (and @Qualifier). 
+  Why it is used: To define a named bean in a portable, non-framework-specific way. 
+  Example: 
+    @Named("std") 
+    public class Student { ... } 
+ 
+@Inject 
+  Definition: Standard equivalent to @Autowired. 
+  Why it is used: To perform dependency injection in a portable way. 
+  Example: 
+    @Inject 
+    @Named(value="courseId") 
+    private ICourseMaterial material;
+
+
+ 
+@PostConstruct 
+  Definition: Marks a method to be executed after the bean has been instantiated and all dependency 
+injection has been completed. 
+  Why it is used: To perform initialization logic that depends on injected dependencies (e.g., 
+verifying DB connection, loading cache data) which cannot be done in the constructor. 
+  Example: 
+    @PostConstruct 
+    public void init() { 
+        // This runs after 'dataSource' is injected 
+        System.out.println("Bean initialized, connection valid: " + (dataSource != null)); 
+    } 
+ 
+@PreDestroy 
+  Definition: Marks a method to be executed just before the bean is removed from the Spring 
+container. 
+  Why it is used: To perform cleanup operations (e.g., closing open files, releasing network 
+connections, stopping background threads). 
+  Example: 
+    @PreDestroy 
+    public void cleanup() { 
+        System.out.println("Closing resources..."); 
+    } 
+
