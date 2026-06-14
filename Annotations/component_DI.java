@@ -8,6 +8,6 @@ Component Scanning & Dependency  Injection :
 • @Service : Specialized @Component, used for business logic and service layer components.   
 • @Repository : Specialized @Component, used for data access objects (DAO) to indicate storage operations.   
 • @Autowired : Automatically injects dependencies into Spring beans, reducing manual configuration.  
-•  @Qualifier("beanName") : Specifies which bean to inject when multiple candidates exist.   
-•  @Primary : Marks a bean as the default choice when multiple candidates exist.   
+• @Qualifier("beanName") : Specifies which bean to inject when multiple candidates exist.   
+• @Primary : Marks a bean as the default choice when multiple candidates exist.   
 • @Value("${property.key}") : Injects values from properties files into Spring beans. 
